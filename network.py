@@ -1,6 +1,8 @@
 import sys
 import socket
 import threading
+from random import random
+from time import sleep
 
 class bcolors:
     HEADER = '\033[95m'
@@ -20,8 +22,10 @@ def main():
 
     global TCP_IP
     global servers
+    global delay
     TCP_IP = socket.gethostbyname(socket.gethostname())
     TCP_PORT = int(sys.argv[1])
+    delay = float(sys.argv[6])
     BUFFER_SIZE = 1024
     servers = {
         "A": int(sys.argv[2]),
@@ -53,12 +57,12 @@ def handle_message(msg, conn):
         return
 
     if msg[0] == "Send":
+        sleep(random()*delay)
         SEND_PORT = servers[msg[-1]]
         send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         send_socket.connect((TCP_IP, SEND_PORT))
         send_socket.send(" ".join(msg[1:-1]))
         send_socket.close()
-        conn.send("ACK")
         print bcolors.OKBLUE + "Sent Message" + bcolors.ENDC
 
     else:
