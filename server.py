@@ -5,11 +5,11 @@ import sys
 import threading
 import datetime
 import signal
+import atexit
+import os
 
 def signal_handler(signal, frame):
-        print('You pressed Ctrl+C!')
-        exit(0)
-
+    sys.exit(0)
 
 def listeningThread(listenIP, listenPort, bufferSize):
 
