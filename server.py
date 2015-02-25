@@ -19,7 +19,7 @@ class bcolors:
 
 def signal_handler(signal, frame):
 
-    print(bcolors.FAIL + bcolors.BOLD + 'Force Quit' + bcolors.ENDC)
+    print(bcolors.FAIL +  'Force Quit' + bcolors.ENDC)
     exit(0)
 
 def readFile(fileName):
@@ -39,9 +39,9 @@ def listeningThread(listenIP, listenPort, bufferSize):
         conn, addr = s.accept()
         data = conn.recv(bufferSize)
         if not data: break
-        print bcolors.OKGREEN + bcolors.BOLD + 'Received "' + data + '", system time is ' + \
+        print bcolors.OKGREEN +  'Received "' + data + '", system time is ' + \
             str(datetime.datetime.now().time().strftime("%H:%M:%S") + bcolors.ENDC) + \
-            bcolors.HEADER + bcolors.BOLD + bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
+            bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
         #conn.send('ACK')   
     conn.close()
 
@@ -59,7 +59,7 @@ listener.daemon = True
 listener.start()
 
 while 1:
-    command = str(raw_input(bcolors.HEADER + bcolors.BOLD + bcolors.UNDERLINE + "Enter Message:\n" + bcolors.ENDC))
+    command = str(raw_input(bcolors.HEADER +  bcolors.UNDERLINE + "Enter Message:\n" + bcolors.ENDC))
     messages = []
 
     if '.txt' in command:
@@ -72,6 +72,6 @@ while 1:
         s2.connect((TCP_IP, TCP_SENDPORT))
         s2.send(message)
         #data = s2.recv(BUFFER_SIZE) #Recieve ACK
-        print bcolors.OKBLUE + bcolors.BOLD + 'Sent "' + message + '", system time is ' + \
+        print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
             str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC
         s2.close()
