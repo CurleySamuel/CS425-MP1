@@ -4,7 +4,11 @@ import socket
 import sys
 import threading
 import datetime
+import signal
 
+def signal_handler(signal, frame):
+        print('You pressed Ctrl+C!')
+        sys.exit(0)
 def listeningThread(listenIP, listenPort, bufferSize):
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -22,6 +26,8 @@ def listeningThread(listenIP, listenPort, bufferSize):
         conn.send('OK\n')  # echo
     conn.close()
 
+signal.signal(signal.SIGINT, signal_handler)
+
 TCP_IP = socket.gethostbyname(socket.gethostname())
 TCP_SENDPORT = int(sys.argv[1]) 
 TCP_RECEIVEPORT = int(sys.argv[2]) 
@@ -37,6 +43,5 @@ while 1:
     s2.send(message)
     data = s2.recv(BUFFER_SIZE)
     print 'Sent "' + message + '", system time is ' + str(datetime.datetime.now().time().strftime("%H:%M:%S"))
-    s2.shutdown(socket.SHUT_RDWR)
     s2.close()
     #print "Returned Message: ", data
