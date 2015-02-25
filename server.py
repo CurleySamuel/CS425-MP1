@@ -8,7 +8,9 @@ import signal
 
 def signal_handler(signal, frame):
         print('You pressed Ctrl+C!')
-        sys.exit(0)
+        exit(0)
+
+
 def listeningThread(listenIP, listenPort, bufferSize):
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -29,11 +31,12 @@ def listeningThread(listenIP, listenPort, bufferSize):
 signal.signal(signal.SIGINT, signal_handler)
 
 TCP_IP = socket.gethostbyname(socket.gethostname())
-TCP_SENDPORT = int(sys.argv[1]) 
-TCP_RECEIVEPORT = int(sys.argv[2]) 
-BUFFER_SIZE = 1024  
+TCP_SENDPORT = int(sys.argv[1])
+TCP_RECEIVEPORT = int(sys.argv[2])
+BUFFER_SIZE = 1024
 
 listener = threading.Thread(target=listeningThread, args=[TCP_IP, TCP_RECEIVEPORT, BUFFER_SIZE])
+listener.daemon = True
 listener.start()
 
 while 1:
