@@ -5,6 +5,8 @@ import sys
 import threading
 import datetime
 import signal
+import atexit
+import os
 
 class bcolors:
     HEADER = '\033[95m'
