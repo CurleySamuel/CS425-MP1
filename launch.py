@@ -16,7 +16,7 @@ elif platform == "linux" or platform == "linux2":
     print "Need to write the bash file for Linux."
     exit(1)
 else:
-    print "Operating system not yet supported"
+    print "Operating system not yet supported. Please run on OSX or Linux."
     exit(1)
 
 

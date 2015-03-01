@@ -20,16 +20,18 @@ class bcolors:
 def signal_handler(signal, frame):
 
     print(bcolors.FAIL +  'Force Quit' + bcolors.ENDC)
+    s.close()
     exit(0)
 
 def readFile(fileName):
-    
+
     with open(fileName) as f:
         commands = f.read().splitlines()
     return commands
 
 def listeningThread(listenIP, listenPort, bufferSize):
 
+    global s
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((listenIP, listenPort))
@@ -42,7 +44,7 @@ def listeningThread(listenIP, listenPort, bufferSize):
         print bcolors.OKGREEN +  'Received "' + data + '", system time is ' + \
             str(datetime.datetime.now().time().strftime("%H:%M:%S") + bcolors.ENDC) + \
             bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
-        #conn.send('ACK')   
+        #conn.send('ACK')
     conn.close()
 
 
