@@ -47,33 +47,36 @@ def listeningThread(listenIP, listenPort, bufferSize):
         #conn.send('ACK')
     conn.close()
 
+def main():
 
+    signal.signal(signal.SIGINT, signal_handler)
 
-signal.signal(signal.SIGINT, signal_handler)
+    TCP_IP = '172.17.79.161'#socket.gethostbyname(socket.gethostname())
+    TCP_SENDPORT = int(sys.argv[1])
+    TCP_RECEIVEPORT = int(sys.argv[2])
+    BUFFER_SIZE = 1024
 
-TCP_IP = socket.gethostbyname(socket.gethostname())
-TCP_SENDPORT = int(sys.argv[1])
-TCP_RECEIVEPORT = int(sys.argv[2])
-BUFFER_SIZE = 1024
+    listener = threading.Thread(target=listeningThread, args=[TCP_IP, TCP_RECEIVEPORT, BUFFER_SIZE])
+    listener.daemon = True
+    listener.start()
 
-listener = threading.Thread(target=listeningThread, args=[TCP_IP, TCP_RECEIVEPORT, BUFFER_SIZE])
-listener.daemon = True
-listener.start()
+    while 1:
+        command = str(raw_input(bcolors.HEADER +  bcolors.UNDERLINE + "Enter Message:\n" + bcolors.ENDC))
+        messages = []
 
-while 1:
-    command = str(raw_input(bcolors.HEADER +  bcolors.UNDERLINE + "Enter Message:\n" + bcolors.ENDC))
-    messages = []
+        if '.txt' in command:
+            messages = readFile(command)
+        else:
+            messages.append(command)
 
-    if '.txt' in command:
-        messages = readFile(command)
-    else:
-        messages.append(command)
+        for message in messages:
+            s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s2.connect((TCP_IP, TCP_SENDPORT))
+            s2.send(message)
+            #data = s2.recv(BUFFER_SIZE) #Recieve ACK
+            print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
+                str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC
+            s2.close()
 
-    for message in messages:
-        s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s2.connect((TCP_IP, TCP_SENDPORT))
-        s2.send(message)
-        #data = s2.recv(BUFFER_SIZE) #Recieve ACK
-        print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
-            str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC
-        s2.close()
+if __name__ == "__main__":
+    main()
