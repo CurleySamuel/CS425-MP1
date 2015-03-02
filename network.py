@@ -62,14 +62,14 @@ def main():
         msg = data.split()
         if len(msg) < 2:
             bad_message(conn)
-        elif msg[0] == "Send":
-            if msg[-1] not in servers.keys() or len(msg) < 3:
+        elif msg[0].lower() == "send":
+            if msg[-1].upper() not in servers.keys() or len(msg) < 3:
                 bad_message(conn)
                 continue
-            queues[msg[-1]][0].put(msg)
+            queues[msg[-1].upper()][0].put(msg)
             conn.close()
-        elif msg[0] == "BCAST":
-            msg[0] = "Send"
+        elif msg[0].lower() == "bcast":
+            msg[0] = "send"
             msg.append("A")
             for x in ["A", "B", "C", "D"]:
                 msg[-1] = x
@@ -103,7 +103,7 @@ def send_message(msg, q):
     q[1].acquire()
     while thread.get_ident() != q[0].queue[0]:
         q[1].wait()
-    SEND_PORT = servers[msg[-1]]
+    SEND_PORT = servers[msg[-1].upper()]
     send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     send_socket.connect((TCP_IP, SEND_PORT))
     send_socket.send(" ".join(msg[1:-1]))
