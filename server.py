@@ -51,7 +51,7 @@ def main():
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    TCP_IP = '172.17.79.161'#socket.gethostbyname(socket.gethostname())
+    TCP_IP = socket.gethostbyname(socket.gethostname())
     TCP_SENDPORT = int(sys.argv[1])
     TCP_RECEIVEPORT = int(sys.argv[2])
     BUFFER_SIZE = 1024
