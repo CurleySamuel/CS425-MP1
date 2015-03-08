@@ -39,12 +39,53 @@ def send_message(message):
     s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s2.connect((TCP_IP, TCP_SENDPORT))
     s2.send(message)
-    #data = s2.recv(BUFFER_SIZE) #Recieve ACK
     print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
-        str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC
+        str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC + \
+        bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
+    print
     s2.close()
 
 
+def handle_message(msg, port):
+    if msg is not None:
+        parse = msg.split()
+        if parse[1] in ["delete","get","insert","update"]:
+            try:
+                me = (port == int(parse[0]))
+            except Exception:
+                me = False
+            if parse[1] == "delete":
+                try:
+                    key_store.pop(parse[2])
+                    if me:
+                        print "Deleted key " + parse[2]
+                except Exception:
+                    if me:
+                        print "Tried to delete non-existent key " + parse[2]
+            elif parse[1] == "get":
+                try:
+                    if me:
+                        print parse[2] + ": " + str(key_store[parse[2]])
+                except Exception:
+                    if me:
+                        print "Failed to get key."
+            elif parse[1] == "insert":
+                key_store[parse[2]] = parse[3]
+                if me:
+                    print "Key " + parse[2] + " inserted."
+            elif parse[1] == "update":
+                if parse[2] in key_store.keys():
+                    key_store[parse[2]] = parse[3]
+                    if me:
+                        print "Key " + parse[2] + " updated."
+                else:
+                    if me:
+                        print "Key " + parse[2] + " does not exist."
+
+        else:
+            print bcolors.OKGREEN +  'Received "' + msg + '", system time is ' + \
+                str(datetime.datetime.now().time().strftime("%H:%M:%S") + bcolors.ENDC) + \
+                bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
 
 
 def listening_thread(listenIP, listenPort, bufferSize):
@@ -56,12 +97,8 @@ def listening_thread(listenIP, listenPort, bufferSize):
     while 1:
         conn, addr = s.accept()
         data = conn.recv(bufferSize)
-        if not data: break
-        print bcolors.OKGREEN +  'Received "' + data + '", system time is ' + \
-            str(datetime.datetime.now().time().strftime("%H:%M:%S") + bcolors.ENDC) + \
-            bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
-        #conn.send('ACK')
-    conn.close()
+        handle_message(data, listenPort)
+        conn.close()
 
 
 valid_lengths = {
@@ -69,7 +106,8 @@ valid_lengths = {
     "get": 3,
     "insert": 4,
     "update": 4,
-    "delay": 2
+    "delay": 2,
+    "show-all" : 1
 }
 def parse_and_validate_message(msg):
     if msg is None:
@@ -77,7 +115,7 @@ def parse_and_validate_message(msg):
     parse = msg.split()
     if parse[0].lower() in valid_lengths.keys():
         if len(parse) != valid_lengths[parse[0].lower()]:
-            print "Invalid command. Expected " + str(valid_lengths[parse[0].lower()]) + " arguments, got " + str(len(parse)-1)
+            print "Invalid command. Expected " + str(valid_lengths[parse[0].lower()]-1) + " arguments, got " + str(len(parse)-1)
             return None
     else:
         if parse[0].lower() in ["send", "bcast"]:
@@ -108,6 +146,9 @@ def worker_thread(TCP_IP, TCP_SENDPORT, listen_port, message_queue):
                     send_message(" ".join(["bcast",str(listen_port)]+parse))
                 elif parse[0].lower() == "delete":
                     send_message(" ".join(["bcast",str(listen_port)]+parse))
+                elif parse[0].lower() == "show-all":
+                    for key,val in key_store.items():
+                        print key + ": " + val
                 else:
                     send_message(message)
 
