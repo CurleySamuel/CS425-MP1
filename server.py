@@ -8,6 +8,7 @@ import signal
 import atexit
 import os
 from multiprocessing.queues import SimpleQueue
+from time import sleep
 
 class bcolors:
     HEADER = '\033[95m'
@@ -53,29 +54,32 @@ def worker_thread(TCP_IP, TCP_SENDPORT, message_queue):
         messages = message_queue.get()
         if messages is not None:
             for message in messages:
-                s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s2.connect((TCP_IP, TCP_SENDPORT))
-                s2.send(message)
-                #data = s2.recv(BUFFER_SIZE) #Recieve ACK
-                print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
-                    str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC
-                s2.close()
+                parse = message.split()
+                if parse[0] is not None:
+                    if parse[0].lower() == "delay":
+                        try:
+                            sleep(float(parse[1]))
+                        except Exception:
+                            print "Invalid delay specified."
+                    else:
+                        s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        s2.connect((TCP_IP, TCP_SENDPORT))
+                        s2.send(message)
+                        #data = s2.recv(BUFFER_SIZE) #Recieve ACK
+                        print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
+                            str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC
+                        s2.close()
 
 def main():
-
     signal.signal(signal.SIGINT, signal_handler)
-
     TCP_IP = socket.gethostbyname(socket.gethostname())
     TCP_SENDPORT = int(sys.argv[1])
     TCP_RECEIVEPORT = int(sys.argv[2])
     BUFFER_SIZE = 1024
-
     listener = threading.Thread(target=listening_thread, args=[TCP_IP, TCP_RECEIVEPORT, BUFFER_SIZE])
     listener.daemon = True
     listener.start()
-
     message_queue = SimpleQueue()
-
     worker = threading.Thread(target=worker_thread, args=[TCP_IP, TCP_SENDPORT, message_queue])
     worker.daemon = True
     worker.start()
