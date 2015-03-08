@@ -125,6 +125,14 @@ def parse_and_validate_message(msg):
         else:
             print "Unrecognized command."
             return None
+    if parse[0].lower() in ["get", "update", "insert"]:
+        try:
+            consist = int(parse[-1])
+            if consist not in range(1,5):
+                raise ValueError
+        except Exception:
+            print "Not a valid consistency model."
+            return None
     return parse
 
 
@@ -142,8 +150,14 @@ def worker_thread(TCP_IP, TCP_SENDPORT, listen_port, message_queue):
                     except ValueError:
                         print "Invalid delay specified."
                 elif parse[0].lower() in ["get", "insert", "update"]:
-                    # Need to change behavior depending on model. Coding linearizability for now.
-                    send_message(" ".join(["bcast",str(listen_port)]+parse))
+                    if parse[0].lower() == "get" and parse[-1] == "2":
+                        try:
+                            print parse[1] + ": " + str(key_store[parse[1]])
+                        except Exception:
+                            print "Failed to get key."
+                    else:
+                        # Need to change behavior depending on model. Coding linearizability for now.
+                        send_message(" ".join(["bcast",str(listen_port)]+parse))
                 elif parse[0].lower() == "delete":
                     send_message(" ".join(["bcast",str(listen_port)]+parse))
                 elif parse[0].lower() == "show-all":
