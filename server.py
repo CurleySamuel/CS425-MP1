@@ -23,9 +23,13 @@ def signal_handler(signal, frame):
     exit(0)
 
 def readFile(fileName):
-    with open(fileName) as f:
-        commands = f.read().splitlines()
-    return commands
+    try:
+        with open(fileName) as f:
+            commands = f.read().splitlines()
+        return commands
+    except IOError:
+        print bcolors.FAIL + "File does not exist" + bcolors.ENDC
+        return None
 
 def listening_thread(listenIP, listenPort, bufferSize):
     global s
@@ -47,14 +51,15 @@ def listening_thread(listenIP, listenPort, bufferSize):
 def worker_thread(TCP_IP, TCP_SENDPORT, message_queue):
     while 1:
         messages = message_queue.get()
-        for message in messages:
-            s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s2.connect((TCP_IP, TCP_SENDPORT))
-            s2.send(message)
-            #data = s2.recv(BUFFER_SIZE) #Recieve ACK
-            print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
-                str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC
-            s2.close()
+        if messages is not None:
+            for message in messages:
+                s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s2.connect((TCP_IP, TCP_SENDPORT))
+                s2.send(message)
+                #data = s2.recv(BUFFER_SIZE) #Recieve ACK
+                print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
+                    str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC
+                s2.close()
 
 def main():
 
