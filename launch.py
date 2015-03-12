@@ -7,18 +7,17 @@ f = open("config.conf", "r")
 config = f.read()
 f.close()
 config = literal_eval(config)
-print "will check platform"
 if platform == "darwin":
     # OSX
     args = ["osascript", "launch_helper.scpt"]
-elif platform == "linux2" or platform == "linux2":
+    print "Running launch script for OSX"
+elif platform == "linux" or platform == "linux2":
     # Linux
     args = ["./launch_helper.sh", "filler"]
-    print "linux detected"
+    print "Running launch script for Linux"
 else:
     print "Operating system not yet supported. Please run on OSX or Linux."
     exit(1)
-print "platform detected"
 
 args.append("server.py")
 args.append(config['network'])
