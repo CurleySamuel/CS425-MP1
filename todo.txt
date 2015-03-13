@@ -2,9 +2,8 @@
 - Implement the "search Key" utility function.
 - Need to change delay from comprehensive across all channels to channel specific delay (A->B: 5, B->C: 2).
 - Clean up the console output.
-- Refactor for readability/cleanliness.
 - Confirm models are working.
-
+- Instead of opening/closing sockets every connection, open a single socket for each server and have the network "select" on them.
 
 Misc.
 - Add timestamp to network's output for readability.
