@@ -20,6 +20,7 @@ class Message:
     outbound = None
     msg = None
     dst = None
+    tstamp = None
     __validated = False
     v_error = None
     me = False
@@ -36,6 +37,7 @@ class Message:
                         self.keyword = "send"
                         self.msg = " ".join(parse)
                     else:
+                        self.tstamp = parse[-1]
                         # Every message will contain a socket, keyword.
                         self.socket = int(parse[0])
                         if self.socket == TCP_RECEIVE_PORT:
@@ -56,6 +58,7 @@ class Message:
             else:
                 # This is an outbound message.
                 self.socket = TCP_RECEIVE_PORT
+                self.tstamp = datetime.datetime.now().time().strftime("%H:%M:%S")
                 self.outbound = True
                 parse = msg.split()
                 try:
@@ -109,6 +112,11 @@ class Message:
             self.v_error = "Invalid consistency model"
             return False
 
+        # tstamp
+        if self.tstamp is None:
+            self.v_error = "Invalid timestamp"
+            return False
+
         self.__validated = True
         return True
 
@@ -117,7 +125,7 @@ class Message:
     def to_message(self):
         if self.keyword in ["bcast", "send"]:
             return " ".join([self.keyword, self.msg, self.dst or ""])
-        return " ".join(["bcast", str(self.socket), self.keyword, self.key, self.val or "", str(self.model or "")])
+        return " ".join(["bcast", str(self.socket), self.keyword, self.key, self.val or "", str(self.model or ""), self.tstamp])
 
 
     # If message isn't already validated send will attempt to validate.
