@@ -11,6 +11,8 @@ from multiprocessing.queues import SimpleQueue
 from time import sleep
 
 """   START OF MESSAGE CLASS   """
+
+valid_keywords = ["delete", "get", "insert", "update", "ack", "return"]
 class Message:
     socket = None
     keyword = None
@@ -33,7 +35,7 @@ class Message:
                 parse = msg.split()
                 try:
                     # SEND/BCAST need to be handled separately
-                    if len(parse) < 3 or parse[1].lower() not in ["delete", "get", "insert", "update"]:
+                    if len(parse) < 3 or parse[1].lower() not in valid_keywords:
                         self.keyword = "send"
                         self.msg = " ".join(parse)
                     else:
@@ -48,7 +50,7 @@ class Message:
                         # But get will not contain a value
                         if self.keyword == "get":
                             self.model = int(parse[3])
-                        elif self.keyword in ["insert", "update"]:
+                        elif self.keyword in ["insert", "update", "return"]:
                             self.val = parse[3]
                             self.model = int(parse[4])
 
@@ -89,8 +91,13 @@ class Message:
 
     # Will attempt to validate. If false is returned then error is stored in v_error.
     def validate(self):
+
+        #TODO: Bypass validation, fix later
+        if self.keyword in ["ack","return"]:
+            return True
+
         # Keyword
-        if self.keyword not in ["delete", "get", "insert", "update", "send", "bcast"]:
+        if self.keyword not in valid_keywords:
             self.v_error = "Invalid keyword"
             return False
 
@@ -143,6 +150,35 @@ class Message:
             bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
         s2.close()
 
+    def duplicate(self):
+        copy = Message(self.outbound, None)
+        copy.socket = self.socket
+        copy.keyword = self.keyword
+        copy.key = self.key
+        copy.val = self.val
+        copy.model = self.model
+        copy.outbound = self.outbound
+        copy.msg = self.msg
+        copy.dst = self.dst
+        copy.tstamp = self.tstamp
+        copy.__validated = self.__validated
+        copy.v_error = self.v_error
+        copy.me = self.me
+        return copy
+
+    def create_ack(self):
+        ack = self.duplicate()
+        ack.outbound = True
+        ack.keyword = "ack"
+        return ack
+
+    def create_return(self, cur_value):
+        return_message = self.duplicate()
+        return_message.outbound = True
+        return_message.keyword = "return"
+        return_message.val = cur_value
+        return return_message
+
 """    END OF MESSAGE CLASS    """
 
 
@@ -172,6 +208,7 @@ def readFile(fileName):
 
 
 def handle_message(msg):
+    print "handling message - " + msg
     msg = Message(False, msg)
     if not msg.validate():
         print "Inbound message failed validation: ", msg.v_error
@@ -180,15 +217,31 @@ def handle_message(msg):
         key_store.pop(msg.key)
     elif msg.keyword == "get":
         if msg.me:
+            #TODO: return timestamps of values
+            return_message = msg.create_return(str(key_store[msg.key]))
+            print "return message val - " + return_message.val
+            return_message.send()  
             print msg.key + ": " + str(key_store[msg.key])
     elif msg.keyword == "insert":
         key_store[msg.key] = msg.val
+        if msg.me:
+            ack = msg.create_ack()
+            ack.send()
     elif msg.keyword == "update":
         key_store[msg.key] = msg.val
+        if msg.me:
+            ack = msg.create_ack()
+            ack.send()
     elif msg.keyword == "send":
         print bcolors.OKGREEN +  'Received "' + msg.msg + '", system time is ' + \
             str(datetime.datetime.now().time().strftime("%H:%M:%S") + bcolors.ENDC) + \
             bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
+    elif msg.keyword == "ack":
+        if msg.me:
+            print "ACK Received"
+    elif msg.keyword == "return":
+        if msg.me:
+            print "Returned " + str(msg.key) + " : " + str(msg.val)
 
 
 def listening_thread(bufferSize):
@@ -278,7 +331,7 @@ def main():
     global key_store
     key_store = {}
     signal.signal(signal.SIGINT, signal_handler)
-    TCP_RECEIVE_IP = TCP_SEND_IP = socket.gethostbyname(socket.gethostname())
+    TCP_RECEIVE_IP = TCP_SEND_IP = '10.0.0.6'#socket.gethostbyname(socket.gethostname())
     TCP_SEND_PORT = int(sys.argv[1])
     TCP_RECEIVE_PORT = int(sys.argv[2])
     BUFFER_SIZE = 1024
