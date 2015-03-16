@@ -51,7 +51,7 @@ class Message:
                         if self.keyword == "get":
                             self.model = int(parse[3])
                             self.sent_tstamp = datetime.datetime.strptime(parse[4],"%H:%M:%S")
-                        elif self.keyword in ["insert", "update", "return"]:
+                        elif self.keyword in ["insert", "update", "return","ack"]:
                             self.val = (parse[3],datetime.datetime.strptime(parse[6],"%H:%M:%S"))
                             self.model = int(parse[4])
                             self.sent_tstamp = datetime.datetime.strptime(parse[5],"%H:%M:%S")
@@ -226,25 +226,44 @@ def handle_message(msg):
         if ((msg.me and msg.model in range(1,3)) or (msg.model in range(3,5))):
             return_message = msg.create_return(key_store[msg.key])
             return_message.send()  
-            #print msg.key + ": " + str(key_store[msg.key])
 
-    elif msg.keyword == "insert":
+    elif msg.keyword in ["insert","update"]:
         key_store[msg.key] = msg.val
-        if msg.me:
+        if ((msg.me and msg.model in range(1,3)) or (msg.model in range(3,5))):
             ack = msg.create_ack()
             ack.send()
-    elif msg.keyword == "update":
-        key_store[msg.key] = msg.val
-        if msg.me:
-            ack = msg.create_ack()
-            ack.send()
+        """
+        Not sure if this conditional is needed, should be same as insert(NEEDS TO BE INDENTED TO THE LEFT)
+        elif msg.keyword == "update":
+            key_store[msg.key] = msg.val
+            if msg.me:
+                ack = msg.create_ack()
+                ack.send()
+        """
     elif msg.keyword == "send":
         print bcolors.OKGREEN +  'Received "' + msg.msg + '", system time is ' + \
             str(datetime.datetime.now().time().strftime("%H:%M:%S") + bcolors.ENDC) + \
             bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
     elif msg.keyword == "ack":
         if msg.me:
-            print "ACK Received"
+            if msg.model in range(1,3):
+                #Linearizable or Sequential Consistency
+                print "ACK Received"
+            else:
+                #Eventual Consistency - Write 
+                requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
+
+                if requestID in eventual_requests:
+
+                    eventual_write_lock.acquire()
+                    if eventual_requests[requestID] == (msg.model-2):
+                        eventual_requests.pop(requestID)
+                        print "ACK Received"
+
+                    else:
+                        eventual_requests[requestID] += 1
+                    eventual_write_lock.release()         
+                
 
     elif msg.keyword == "return":
         if msg.me:
@@ -257,21 +276,21 @@ def handle_message(msg):
                 
                 if requestID in eventual_requests: 
 
-                    #If get counter reachs appropriate R for model, return result and remove entry from dictionary
-                    eventual_lock.acquire()
+                    #If read counter reachs appropriate R for model, return result and remove entry from dictionary
+                    eventual_read_lock.acquire()
                     if eventual_requests[requestID][2] == (msg.model-2):
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         eventual_requests.pop(requestID)
-                        print "Returned " + str(msg.key) + " - " + latestValue[0], latestValue[1].strftime('%H:%M:%S')
+                        print "Returned " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
 
+                    #Check if entry for read value is the latest, increment get counter
                     else:
-                        #Check if entry for get value is the latest, increment get counter
                         currentLatestTime = eventual_requests[requestID][1]
                         if currentLatestTime < msg.val[1]:
                             eventual_requests[requestID][0] = msg.val[0]
                             eventual_requests[requestID][1] = msg.val[1]
                         eventual_requests[requestID][2] += 1
-                    eventual_lock.release()
+                    eventual_read_lock.release()
 
                 
 
@@ -356,14 +375,17 @@ def worker_thread(message_queue):
                          #Eventual Consistency Requests
                         requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
                         if msg.model in range(3,5):
-                            eventual_lock.acquire()
                             if msg.keyword == "get":
+                                eventual_read_lock.acquire()
                                 print "entry created - " + str(requestID)
                                 #Will error if running at time 00:00:00 
                                 eventual_requests[requestID] = [None,datetime.datetime(1900,1,1),0] #If get, need to store number of requests and latest value & timestamp
+                                eventual_read_lock.release()
+
                             elif msg.keyword in ["insert","update"]:
+                                eventual_write_lock.acquire()
                                 eventual_requests[requestID] = 0 #Only need to store number of acks recieved
-                            eventual_lock.release()
+                                eventual_write_lock.release()
 
                         msg.send()
 
@@ -376,10 +398,12 @@ def main():
     global TCP_RECEIVE_PORT
     global key_store
     global eventual_requests
-    global eventual_lock 
+    global eventual_write_lock 
+    global eventual_read_lock 
     key_store = {}
     eventual_requests = {}
-    eventual_lock = threading.Lock()
+    eventual_write_lock = threading.Lock()
+    eventual_read_lock = threading.Lock()
     signal.signal(signal.SIGINT, signal_handler)
     TCP_RECEIVE_IP = TCP_SEND_IP = '10.0.0.6'#socket.gethostbyname(socket.gethostname())
     TCP_SEND_PORT = int(sys.argv[1])
