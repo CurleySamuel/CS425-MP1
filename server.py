@@ -50,11 +50,11 @@ class Message:
                         # But get will not contain a value
                         if self.keyword == "get":
                             self.model = int(parse[3])
-                            self.sent_tstamp = parse[4]
+                            self.sent_tstamp = datetime.datetime.strptime(parse[4],"%H:%M:%S")
                         elif self.keyword in ["insert", "update", "return"]:
-                            self.val = (parse[3],parse[6])
+                            self.val = (parse[3],datetime.datetime.strptime(parse[6],"%H:%M:%S"))
                             self.model = int(parse[4])
-                            self.sent_tstamp = parse[5]
+                            self.sent_tstamp = datetime.datetime.strptime(parse[5],"%H:%M:%S")
 
                 except Exception as e:
                     print "Error parsing inbound message: ", e
@@ -62,7 +62,7 @@ class Message:
             else:
                 # This is an outbound message.
                 self.socket = TCP_RECEIVE_PORT
-                currentTime = datetime.datetime.now().time().strftime("%H:%M:%S") #TODO: 
+                currentTime = datetime.datetime.now() 
                 self.sent_tstamp = currentTime
                 self.outbound = True
                 parse = msg.split()
@@ -79,7 +79,7 @@ class Message:
                         # Need to handle get differently
                         if self.keyword == "get":
                             self.model = int(parse[2])
-                            self.val = (None, None) #Value of get and tstamp will be filled by receiving server
+                            self.val = (None, datetime.datetime(1970,1,1)) #Value of get and tstamp will be filled by receiving server
                         else:
                             self.val = (parse[2],currentTime)
                             self.model = int(parse[3])
@@ -138,7 +138,7 @@ class Message:
     def to_message(self):
         if self.keyword in ["bcast", "send"]:
             return " ".join([self.keyword, self.msg, self.dst or ""])
-        return " ".join(["bcast", str(self.socket), self.keyword, self.key, self.val[0] or "", str(self.model or ""), self.sent_tstamp, self.val[1] or ""])
+        return " ".join(["bcast", str(self.socket), self.keyword, self.key, self.val[0] or "", str(self.model or ""), self.sent_tstamp.strftime('%H:%M:%S'), self.val[1].strftime('%H:%M:%S') or ""])
 
 
     # If message isn't already validated send will attempt to validate.
@@ -250,27 +250,24 @@ def handle_message(msg):
         if msg.me:
             if msg.model in range(1,3):
                 #Linearizable or Sequential Consistency
-                print "Returned " + str(msg.key) + " - " + str(msg.val)
+                print "Returned " + str(msg.key) + " - " + msg.val[0],msg.val[1].strftime('%H:%M:%S')
             else:
                 #Eventual Consistency - Read
-                requestID = str(msg.socket) + "-" + str(msg.sent_tstamp) 
-                print "entry - ",str(eventual_requests[requestID])
-                #TODO: INITIALIZE ENTRY TIMESTAMP TO OLDEST VALUE POSSIBLE
+                requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
                 
-                print "count - " + str(eventual_requests[requestID][2])
-                if requestID in eventual_requests: #TODO: Conditional might be unneccesary - entry in dictionary created upon outbound message
+                if requestID in eventual_requests: 
 
                     #If get counter reachs appropriate R for model, return result and remove entry from dictionary
                     eventual_lock.acquire()
                     if eventual_requests[requestID][2] == (msg.model-2):
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         eventual_requests.pop(requestID)
-                        print "Returned " + str(msg.key) + " - " + str(latestValue)
-                    
+                        print "Returned " + str(msg.key) + " - " + latestValue[0], latestValue[1].strftime('%H:%M:%S')
+
                     else:
                         #Check if entry for get value is the latest, increment get counter
                         currentLatestTime = eventual_requests[requestID][1]
-                        if currentLatestTime - msg.val[1] > 0:
+                        if currentLatestTime < msg.val[1]:
                             eventual_requests[requestID][0] = msg.val[0]
                             eventual_requests[requestID][1] = msg.val[1]
                         eventual_requests[requestID][2] += 1
@@ -357,12 +354,13 @@ def worker_thread(message_queue):
                     else:
 
                          #Eventual Consistency Requests
-                        requestID = str(msg.socket) + "-" + str(msg.sent_tstamp)
+                        requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
                         if msg.model in range(3,5):
                             eventual_lock.acquire()
                             if msg.keyword == "get":
                                 print "entry created - " + str(requestID)
-                                eventual_requests[requestID] = (None,None,0) #If get, need to store number of requests and latest value & timestamp
+                                #Will error if running at time 00:00:00 
+                                eventual_requests[requestID] = [None,datetime.datetime(1900,1,1),0] #If get, need to store number of requests and latest value & timestamp
                             elif msg.keyword in ["insert","update"]:
                                 eventual_requests[requestID] = 0 #Only need to store number of acks recieved
                             eventual_lock.release()
@@ -383,7 +381,7 @@ def main():
     eventual_requests = {}
     eventual_lock = threading.Lock()
     signal.signal(signal.SIGINT, signal_handler)
-    TCP_RECEIVE_IP = TCP_SEND_IP = '172.17.217.171'#socket.gethostbyname(socket.gethostname())
+    TCP_RECEIVE_IP = TCP_SEND_IP = '10.0.0.6'#socket.gethostbyname(socket.gethostname())
     TCP_SEND_PORT = int(sys.argv[1])
     TCP_RECEIVE_PORT = int(sys.argv[2])
     BUFFER_SIZE = 1024
