@@ -28,7 +28,7 @@ for server in config['servers']:
     args[-1] = server
     subprocess.call(args)
 
+print "All processes launched. Launching network now."
 args = ["python"] + ["network.py"] + [config['network']] + config['servers'] + [config["delay"]]
 subprocess.call(args)
 
-print "All processes launched."
