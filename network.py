@@ -6,6 +6,7 @@ from random import random
 from time import sleep
 import Queue
 import multiprocessing
+import pickle
 
 class bcolors:
     HEADER = '\033[95m'
@@ -29,7 +30,7 @@ def main():
     global queues
     TCP_IP = socket.gethostbyname(socket.gethostname())
     TCP_PORT = int(sys.argv[1])
-    delay = float(sys.argv[6])
+    delay = pickle.loads(sys.argv[6])
     BUFFER_SIZE = 1024
     servers = {
         "A": int(sys.argv[2]),
@@ -49,7 +50,7 @@ def main():
     s.bind((TCP_IP, TCP_PORT))
     print bcolors.HEADER + " --- Binding to Socket --- " + bcolors.ENDC
     for x in ["A", "B", "C", "D"]:
-        t = threading.Thread(target=thread_function, args=(queues[x]))
+        t = threading.Thread(target=thread_function, args=(queues[x])+(x,))
         t.daemon = True
         t.start()
     print bcolors.HEADER + " --- All Sending Threads Created --- " + bcolors.ENDC
@@ -79,12 +80,12 @@ def main():
             bad_message(conn)
 
 
-def thread_function(q1, q2, q3):
+def thread_function(q1, q2, q3, me):
     q = (q1, q2, q3)
     while 1:
         msg = q[0].get()
         q[2].acquire()
-        t = threading.Thread(target=send_message, args=(msg, (q[1], q[2])))
+        t = threading.Thread(target=send_message, args=(msg, (q[1], q[2]), me))
         t.daemon = True
         t.start()
         q[1].put(t.ident)
@@ -98,8 +99,8 @@ def bad_message(conn):
     print bcolors.WARNING + "Malformed Message" + bcolors.ENDC
 
 
-def send_message(msg, q):
-    sleep(random()*delay)
+def send_message(msg, q, me):
+    sleep(random()*delay[me][msg[-1]])
     q[1].acquire()
     while thread.get_ident() != q[0].queue[0]:
         q[1].wait()

@@ -2,6 +2,7 @@ import subprocess
 import os
 from ast import literal_eval
 from sys import platform
+import pickle
 
 f = open("config.conf", "r")
 config = f.read()
@@ -19,6 +20,7 @@ else:
     print "Operating system not yet supported. Please run on OSX or Linux."
     exit(1)
 
+config["delay"] = pickle.dumps(config["delay"])
 args.append("server.py")
 args.append(config['network'])
 args.append("port")
@@ -26,7 +28,7 @@ for server in config['servers']:
     args[-1] = server
     subprocess.call(args)
 
-args = args[:2] + ["network.py"] + [config['network']] + config['servers'] + [str(config["delay"])]
+args = ["python"] + ["network.py"] + [config['network']] + config['servers'] + [config["delay"]]
 subprocess.call(args)
 
 print "All processes launched."
