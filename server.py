@@ -444,7 +444,7 @@ def main():
     eventual_write_lock = threading.Lock()
     eventual_read_lock = threading.Lock()
     signal.signal(signal.SIGINT, signal_handler)
-    TCP_RECEIVE_IP = TCP_SEND_IP = socket.gethostbyname(socket.gethostname())
+    TCP_RECEIVE_IP = TCP_SEND_IP = '10.0.0.6'#socket.gethostbyname(socket.gethostname())
     TCP_SEND_PORT = int(sys.argv[1])
     TCP_RECEIVE_PORT = int(sys.argv[2])
     BUFFER_SIZE = 1024
