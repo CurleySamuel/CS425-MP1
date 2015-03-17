@@ -12,7 +12,7 @@ from time import sleep
 
 """   START OF MESSAGE CLASS   """
 
-valid_keywords = ["delete", "get", "insert", "update", "ack", "return"]
+valid_keywords = ["search","found","delete", "get", "insert", "update", "ack", "return"]
 class Message:
     socket = None
     keyword = None
@@ -48,13 +48,14 @@ class Message:
                         self.key = parse[2]
 
                         # But get will not contain a value
-                        if self.keyword == "get":
+                        if self.keyword in ["get","found"]:
                             self.model = int(parse[3])
                             self.sent_tstamp = datetime.datetime.strptime(parse[4],"%H:%M:%S")
                         elif self.keyword in ["insert", "update", "return","ack"]:
                             self.val = (parse[3],datetime.datetime.strptime(parse[6],"%H:%M:%S"))
                             self.model = int(parse[4])
                             self.sent_tstamp = datetime.datetime.strptime(parse[5],"%H:%M:%S")
+
 
                 except Exception as e:
                     print "Error parsing inbound message: ", e
@@ -80,7 +81,7 @@ class Message:
                         if self.keyword == "get":
                             self.model = int(parse[2])
                             self.val = (None, datetime.datetime(1970,1,1)) #Value of get and tstamp will be filled by receiving server
-                        else:
+                        elif self.keyword != "search":
                             self.val = (parse[2],currentTime)
                             self.model = int(parse[3])
 
@@ -97,7 +98,8 @@ class Message:
     def validate(self):
 
         #TODO: Bypass validation, fix later
-        if self.keyword in ["ack","return"]:
+        if self.keyword in ["ack","return","search","found"]:
+            self.__validated = True
             return True
 
         # Keyword
@@ -138,7 +140,9 @@ class Message:
     def to_message(self):
         if self.keyword in ["bcast", "send"]:
             return " ".join([self.keyword, self.msg, self.dst or ""])
-        return " ".join(["bcast", str(self.socket), self.keyword, self.key, self.val[0] or "", str(self.model or ""), self.sent_tstamp.strftime('%H:%M:%S'), self.val[1].strftime('%H:%M:%S') or ""])
+        if self.keyword in ["search","found"]:
+            return " ".join(["bcast", str(self.socket), self.keyword, self.key, str(self.model) or "empty",self.sent_tstamp.strftime('%H:%M:%S')])
+        return " ".join(["bcast", str(self.socket), self.keyword, self.key or "", self.val[0] or "", str(self.model or ""), self.sent_tstamp.strftime('%H:%M:%S'), self.val[1].strftime('%H:%M:%S') or ""])
 
 
     # If message isn't already validated send will attempt to validate.
@@ -186,6 +190,15 @@ class Message:
         return_message.val = cur_value
         return return_message
 
+    def create_found(self):
+        found_message = Message(True, None)
+        found_message.socket = self.socket
+        found_message.keyword = "found"
+        found_message.key = self.key
+        found_message.model = TCP_RECEIVE_PORT #Using model variable to hold server identifier
+        found_message.sent_tstamp = datetime.datetime.strptime(self.tstamp, "%H:%M:%S")
+        return found_message
+
 """    END OF MESSAGE CLASS    """
 
 class bcolors:
@@ -221,6 +234,18 @@ def handle_message(msg):
         return
     if msg.keyword == "delete":
         key_store.pop(msg.key)
+    
+    elif msg.keyword == "search":
+        print msg.sent_tstamp
+        if msg.me:
+            print "Keys present in: "
+        if key_store.has_key(msg.key):
+            found_message = msg.create_found()
+            found_message.send()
+
+    elif msg.keyword == "found":
+        if msg.me:
+            print str(msg.model)
 
     elif msg.keyword == "get":
         if ((msg.me and msg.model in range(1,3)) or (msg.model in range(3,5))):
@@ -334,7 +359,9 @@ valid_lengths = {
     "insert": 4,
     "update": 4,
     "delay": 2,
-    "show-all" : 1
+    "show-all" : 1,
+    "search" : 2
+    
 }
 def parse_and_validate_command(msg):
     if msg is None:
@@ -389,7 +416,7 @@ def worker_thread(message_queue):
 
                     # Consistency of 2 for get means we don't need to send the message
                     if msg.keyword == "get" and msg.model == 2:
-                        print msg.key + ": " + str(key_store[msg.key])
+                        print "Returned " + str(msg.key) + " - " + key_store[msg.key][0],key_store[msg.key][1].strftime('%H:%M:%S')
                     else:
 
                          #Eventual Consistency Requests
