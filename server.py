@@ -34,6 +34,7 @@ class Message:
                 self.outbound = False
                 parse = msg.split()
                 try:
+                    print parse
                     # SEND/BCAST need to be handled separately
                     if len(parse) < 3 or parse[1].lower() not in valid_keywords:
                         self.keyword = "send"
