@@ -148,6 +148,11 @@ def send_message(msg, q):
     send_socket.connect((TCP_IP, SEND_PORT))
     send_socket.send(" ".join(msg[1:-1]))
     send_socket.close()
+    try:
+        msg[2] = int(msg[2])
+        msg[2] = msg[0]
+    except Exception:
+        pass
     print bcolors.OKBLUE + "Sent " + bcolors.OKGREEN + msg[2] + bcolors.OKBLUE + " (" + origin + " -> " + msg[-1]+ ")\t" + str(datetime.datetime.now().strftime("%H:%M:%S:%f")) + bcolors.ENDC
     if msg[2] not in ["found","search"]:
         q[0].get()
