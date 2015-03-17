@@ -62,7 +62,7 @@ class Message:
             else:
                 # This is an outbound message.
                 self.socket = TCP_RECEIVE_PORT
-                currentTime = datetime.datetime.now() 
+                currentTime = datetime.datetime.now()
                 self.sent_tstamp = currentTime
                 self.outbound = True
                 parse = msg.split()
@@ -152,7 +152,7 @@ class Message:
         s2.connect((TCP_SEND_IP, TCP_SEND_PORT))
         s2.send(message)
         print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
-            str(datetime.datetime.now().time().strftime("%H:%M:%S")) + bcolors.ENDC + \
+                str(datetime.datetime.now().strftime("%H:%M:%S:%f")) + bcolors.ENDC + \
             bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
         s2.close()
 
@@ -225,7 +225,7 @@ def handle_message(msg):
     elif msg.keyword == "get":
         if ((msg.me and msg.model in range(1,3)) or (msg.model in range(3,5))):
             return_message = msg.create_return(key_store[msg.key])
-            return_message.send()  
+            return_message.send()
 
     elif msg.keyword in ["insert","update"]:
         key_store[msg.key] = msg.val
@@ -242,7 +242,7 @@ def handle_message(msg):
         """
     elif msg.keyword == "send":
         print bcolors.OKGREEN +  'Received "' + msg.msg + '", system time is ' + \
-            str(datetime.datetime.now().time().strftime("%H:%M:%S") + bcolors.ENDC) + \
+                str(datetime.datetime.now().strftime("%H:%M:%S:%f") + bcolors.ENDC) + \
             bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
     elif msg.keyword == "ack":
         if msg.me:
@@ -250,7 +250,7 @@ def handle_message(msg):
                 #Linearizable or Sequential Consistency
                 print "ACK Received"
             else:
-                #Eventual Consistency - Write 
+                #Eventual Consistency - Write
                 requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
 
                 if requestID in eventual_requests:
@@ -262,8 +262,8 @@ def handle_message(msg):
 
                     else:
                         eventual_requests[requestID] += 1
-                    eventual_write_lock.release()         
-                
+                    eventual_write_lock.release()
+
 
     elif msg.keyword == "return":
         if msg.me:
@@ -273,8 +273,8 @@ def handle_message(msg):
             else:
                 #Eventual Consistency - Read
                 requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
-                
-                if requestID in eventual_requests: 
+
+                if requestID in eventual_requests:
 
                     #If read counter reachs appropriate R for model, return result and remove entry from dictionary
                     eventual_read_lock.acquire()
@@ -292,7 +292,7 @@ def handle_message(msg):
                         eventual_requests[requestID][2] += 1
                     eventual_read_lock.release()
 
-                
+
 
 
 def listening_thread(bufferSize):
@@ -366,7 +366,7 @@ def worker_thread(message_queue):
                     if not msg.validate():
                         print "Invalid command:", msg.v_error
                         continue
-                    
+
                     # Consistency of 2 for get means we don't need to send the message
                     if msg.keyword == "get" and msg.model == 2:
                         print msg.key + ": " + str(key_store[msg.key])
@@ -378,7 +378,7 @@ def worker_thread(message_queue):
                             if msg.keyword == "get":
                                 eventual_read_lock.acquire()
                                 print "entry created - " + str(requestID)
-                                #Will error if running at time 00:00:00 
+                                #Will error if running at time 00:00:00
                                 eventual_requests[requestID] = [None,datetime.datetime(1900,1,1),0] #If get, need to store number of requests and latest value & timestamp
                                 eventual_read_lock.release()
 
@@ -398,14 +398,14 @@ def main():
     global TCP_RECEIVE_PORT
     global key_store
     global eventual_requests
-    global eventual_write_lock 
-    global eventual_read_lock 
+    global eventual_write_lock
+    global eventual_read_lock
     key_store = {}
     eventual_requests = {}
     eventual_write_lock = threading.Lock()
     eventual_read_lock = threading.Lock()
     signal.signal(signal.SIGINT, signal_handler)
-    TCP_RECEIVE_IP = TCP_SEND_IP = '10.0.0.6'#socket.gethostbyname(socket.gethostname())
+    TCP_RECEIVE_IP = TCP_SEND_IP = socket.gethostbyname(socket.gethostname())
     TCP_SEND_PORT = int(sys.argv[1])
     TCP_RECEIVE_PORT = int(sys.argv[2])
     BUFFER_SIZE = 1024
