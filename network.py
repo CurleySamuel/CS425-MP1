@@ -1,6 +1,7 @@
 import sys
 import socket
 import threading
+import thread
 from random import random
 from time import sleep
 import Queue
@@ -134,7 +135,7 @@ def send_message(msg, q, me):
     send_socket.connect((TCP_IP, SEND_PORT))
     send_socket.send(" ".join(msg[1:-1]))
     send_socket.close()
-    print bcolors.OKBLUE + "Sent Message" + bcolors.ENDC
+    print bcolors.OKBLUE + "Sent " + bcolors.OKGREEN + msg[2] + bcolors.OKBLUE + " (" + me + " -> " + msg[-1]+ ")" + bcolors.ENDC
     q[0].get()
     q[1].notifyAll()
     q[1].release()
