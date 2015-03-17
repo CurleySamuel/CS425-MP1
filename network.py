@@ -79,7 +79,6 @@ def main():
     while 1:
         conn, addr = s.accept()
         data = conn.recv(BUFFER_SIZE)
-        print 'data - ',data
         msg = data.split()
 
         if len(msg) < 2:
@@ -96,7 +95,6 @@ def main():
             msg.append("A")
             for x in ["A", "B", "C", "D"]:
                 msg[-1] = x
-                print 'msg - ',msg
                 # Need the list() here to create a new object. Otherwise every thread will have a
                 # reference to the same object and everything screws up. Was a fun bug.
                 queues[x][0].put(list(msg))
@@ -137,6 +135,8 @@ def send_message(msg, q):
     # Sleep that random amount by looking up MAX from the delay dict.
     if msg[2] not in ["search", "found"]:
         sleep(random()*delay[origin][msg[-1]])
+    elif msg[2] == "found":
+        msg[4] = servers_reverse[int(msg[4])]
     q[1].acquire()
     # Use the conditional to wait for this message to be next on the queue.
     while thread.get_ident() != q[0].queue[0]:

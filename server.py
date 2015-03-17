@@ -34,7 +34,6 @@ class Message:
                 self.outbound = False
                 parse = msg.split()
                 try:
-                    print parse
                     # SEND/BCAST need to be handled separately
                     if len(parse) < 3 or parse[1].lower() not in valid_keywords:
                         self.keyword = "send"
@@ -49,7 +48,10 @@ class Message:
 
                         # But get will not contain a value
                         if self.keyword in ["get","found"]:
-                            self.model = int(parse[3])
+                            if self.keyword == "get":
+                                self.model = int(parse[3])
+                            else:
+                                self.model = parse[3]
                             self.sent_tstamp = datetime.datetime.strptime(parse[4],"%H:%M:%S")
                         elif self.keyword in ["insert", "update", "return","ack"]:
                             self.val = (parse[3],datetime.datetime.strptime(parse[6],"%H:%M:%S"))
@@ -159,9 +161,9 @@ class Message:
         s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s2.connect((TCP_SEND_IP, TCP_SEND_PORT))
         s2.send(message)
-        print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
-                str(datetime.datetime.now().strftime("%H:%M:%S:%f")) + bcolors.ENDC + \
-            bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
+        #print bcolors.OKBLUE +  'Sent "' + message + '", system time is ' + \
+        #        str(datetime.datetime.now().strftime("%H:%M:%S:%f")) + bcolors.ENDC + \
+        #    bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
         s2.close()
 
     def duplicate(self):
@@ -230,7 +232,7 @@ def readFile(fileName):
 
 
 def handle_message(msg):
-    print "Handling message - " + msg
+    #print "Handling message - " + msg
     msg = Message(False, msg)
     if not msg.validate():
         print "Inbound message failed validation: ", msg.v_error
@@ -240,7 +242,8 @@ def handle_message(msg):
 
     elif msg.keyword == "search":
         if msg.me:
-            print "Keys present in: "
+            #print "Keys present in: "
+            pass
         if key_store.has_key(msg.key):
             #If key is present on server, bcast FOUND message
             msg.send_found_message()
@@ -248,7 +251,7 @@ def handle_message(msg):
     elif msg.keyword == "found":
         if msg.me:
             #Print server which responded saying it had key TODO: Translate port numbers to server id's
-            print str(msg.model)
+            print "Found", msg.key, "in", str(msg.model)
 
     elif msg.keyword == "get":
         if ((msg.me and msg.model in range(1,3)) or (msg.model in range(3,5))):
@@ -268,7 +271,8 @@ def handle_message(msg):
         if msg.me:
             if msg.model in range(1,3):
                 #Linearizable/Sequential Consistency
-                print "ACK Received"
+                #print "ACK Received"
+                pass
             else:
                 #Eventual Consistency - Write
                 requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
@@ -279,7 +283,7 @@ def handle_message(msg):
                     if eventual_requests[requestID] == (msg.model-2):
                         #Once ACK's from k replicas are received, respond to client
                         eventual_requests.pop(requestID)
-                        print "ACK Received"
+                        #print "ACK Received"
 
                     else:
                         eventual_requests[requestID] += 1
@@ -303,7 +307,7 @@ def handle_message(msg):
                         #Once RETURN's from k replicas ar received, take the latest one and respond to client
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         #eventual_requests.pop(requestID)
-                        print "Returned " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
+                        #print "Returned " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
 
                     #Check if entry for read value is the latest, increment RETURN counter
                     currentLatestTime = eventual_requests[requestID][1]
@@ -317,7 +321,7 @@ def handle_message(msg):
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         eventual_requests.pop(requestID)
                         send_repair_message(msg.key, latestValue)
-                        print "Repairing - " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
+                        #print "Repairing - " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
 
                     eventual_read_lock.release()
 
@@ -444,7 +448,7 @@ def main():
     eventual_write_lock = threading.Lock()
     eventual_read_lock = threading.Lock()
     signal.signal(signal.SIGINT, signal_handler)
-    TCP_RECEIVE_IP = TCP_SEND_IP = '10.0.0.6'#socket.gethostbyname(socket.gethostname())
+    TCP_RECEIVE_IP = TCP_SEND_IP = socket.gethostbyname(socket.gethostname())
     TCP_SEND_PORT = int(sys.argv[1])
     TCP_RECEIVE_PORT = int(sys.argv[2])
     BUFFER_SIZE = 1024
@@ -464,6 +468,7 @@ def main():
         else:
             messages.append(command)
         message_queue.put(messages)
-
+        print bcolors.OKBLUE +  'System time is ' + \
+                str(datetime.datetime.now().strftime("%H:%M:%S:%f")) + bcolors.ENDC
 if __name__ == "__main__":
     main()
