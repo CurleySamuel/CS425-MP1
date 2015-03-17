@@ -6,6 +6,7 @@ from random import random
 from time import sleep
 import Queue
 import pickle
+import datetime
 
 # Helper class used to colorize our print messages.
 class bcolors:
@@ -27,6 +28,7 @@ def main():
 
     global TCP_IP
     global servers
+    global servers_reverse
     global delay
     global queues
     TCP_IP = socket.gethostbyname(socket.gethostname())
@@ -40,6 +42,12 @@ def main():
         "B": int(sys.argv[3]),
         "C": int(sys.argv[4]),
         "D": int(sys.argv[5])
+    }
+    servers_reverse = {
+        int(sys.argv[2]): "A",
+        int(sys.argv[3]): "B",
+        int(sys.argv[4]): "C",
+        int(sys.argv[5]): "D"
     }
     # Each server gets a,
     # 1. Queue for messages. This is used to launch threads for each message.
@@ -58,7 +66,7 @@ def main():
     print bcolors.HEADER + " --- Binding to Socket --- " + bcolors.ENDC
     # We launch a handling thread for every server. These threads will watch the first queue for new msgs.
     for x in ["A", "B", "C", "D"]:
-        t = threading.Thread(target=thread_function, args=(queues[x])+(x,))
+        t = threading.Thread(target=thread_function, args=(queues[x]))
         t.daemon = True
         t.start()
     print bcolors.HEADER + " --- All Sending Threads Created --- " + bcolors.ENDC
@@ -103,13 +111,13 @@ def bad_message(conn):
 
 # A thread for every server is launched into this function. These four threads will listen to their
 # respective queue and launch a thread for every incoming message.
-def thread_function(q1, q2, q3, me):
+def thread_function(q1, q2, q3):
     q = (q1, q2, q3)
     while 1:
         msg = q[0].get()
         # We need to acquire the lock before modifying the queue.
         q[2].acquire()
-        t = threading.Thread(target=send_message, args=(msg, (q[1], q[2]), me))
+        t = threading.Thread(target=send_message, args=(msg, (q[1], q[2])))
         t.daemon = True
         t.start()
         q[1].put(t.ident)
@@ -121,10 +129,10 @@ def thread_function(q1, q2, q3, me):
 # A thread for every message will launch into this function.
 # msg: A list created by splitting the message by spaces
 # q: The queue object that the thread_ids were put onto
-# me: The origin server. Used to look up channel delays.
-def send_message(msg, q, me):
+def send_message(msg, q):
+    origin = servers_reverse[int(msg[1])]
     # Sleep that random amount by looking up MAX from the delay dict.
-    sleep(random()*delay[me][msg[-1]])
+    sleep(random()*delay[origin][msg[-1]])
     q[1].acquire()
     # Use the conditional to wait for this message to be next on the queue.
     while thread.get_ident() != q[0].queue[0]:
@@ -135,7 +143,7 @@ def send_message(msg, q, me):
     send_socket.connect((TCP_IP, SEND_PORT))
     send_socket.send(" ".join(msg[1:-1]))
     send_socket.close()
-    print bcolors.OKBLUE + "Sent " + bcolors.OKGREEN + msg[2] + bcolors.OKBLUE + " (" + me + " -> " + msg[-1]+ ")" + bcolors.ENDC
+    print bcolors.OKBLUE + "Sent " + bcolors.OKGREEN + msg[2] + bcolors.OKBLUE + " (" + origin + " -> " + msg[-1]+ ")\t" + str(datetime.datetime.now().strftime("%H:%M:%S:%f")) + bcolors.ENDC
     q[0].get()
     q[1].notifyAll()
     q[1].release()
