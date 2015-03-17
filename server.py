@@ -293,7 +293,7 @@ def handle_message(msg):
         if msg.me:
             if msg.model in range(1,3):
                 #Linearizable/Sequential Consistency
-                print bcolors.OKGREEN, msg.key, ":", msg.val[0],'Last Written: ',msg.val[1],' Time Received: ', datetime.datetime.now().strftime('%H:%M:%S')
+                print bcolors.OKGREEN, msg.key, ":", msg.val[0],'Last Written:',msg.val[1].strftime('%H:%M:%S'),'Time Received:', datetime.datetime.now().strftime('%H:%M:%S'), bcolors.ENDC
             else:
                 #Eventual Consistency - Read
                 requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
@@ -306,9 +306,9 @@ def handle_message(msg):
                         #Once RETURN's from k replicas ar received, take the latest one and respond to client
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         #eventual_requests.pop(requestID)
-                        print bcolors.OKGREEN, msg.key, ":", latestValue[0],'Last Written: ',latestValue[1],' Time Received: ', datetime.datetime.now().strftime('%H:%M:%S')
+                        print bcolors.OKGREEN, msg.key, ":", latestValue[0], 'Last Written: ',latestValue[1].strftime('%H:%M:%S'),' Time Received: ', datetime.datetime.now().strftime('%H:%M:%S'), bcolors.ENDC
 
-                        print "Returned " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
+                        print "Returned " + str(msg.key) + " : " + latestValue[0],", ", latestValue[1].strftime('%H:%M:%S') + bcolors.ENDC
 
                     #Check if entry for read value is the latest, increment RETURN counter
                     currentLatestTime = eventual_requests[requestID][1]
