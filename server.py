@@ -38,7 +38,7 @@ class Message:
                     # SEND/BCAST need to be handled separately
                     if len(parse) < 3 or parse[1].lower() not in valid_keywords:
                         self.keyword = "send"
-                        self.msg = " ".join(parse)
+                        self.msg = " ".join(parse[:-1])
                     else:
                         # Every message will contain a socket, keyword.
                         self.socket = int(parse[0])
