@@ -103,7 +103,6 @@ class Message:
     # Will attempt to validate. If false is returned then error is stored in v_error.
     def validate(self):
 
-        #TODO: Bypass validation, fix later
         if self.keyword in ["ack","return","search","found"]:
             self.__validated = True
             return True
@@ -271,7 +270,7 @@ def handle_message(msg):
         if msg.me:
             if msg.model in range(1,3):
                 #Linearizable/Sequential Consistency
-                #print "ACK Received"
+                print "ACK Received"
                 pass
             else:
                 #Eventual Consistency - Write
@@ -283,7 +282,7 @@ def handle_message(msg):
                     if eventual_requests[requestID] == (msg.model-2):
                         #Once ACK's from k replicas are received, respond to client
                         eventual_requests.pop(requestID)
-                        #print "ACK Received"
+                        print "ACK Received"
 
                     else:
                         eventual_requests[requestID] += 1
@@ -294,7 +293,7 @@ def handle_message(msg):
         if msg.me:
             if msg.model in range(1,3):
                 #Linearizable/Sequential Consistency
-                print "Returned " + str(msg.key) + " - " + msg.val[0],msg.val[1].strftime('%H:%M:%S')
+                print bcolors.OKGREEN, msg.key, ":", msg.val[0],'Last Written: ',msg.val[1],' Time Received: ', datetime.datetime.now().strftime('%H:%M:%S')
             else:
                 #Eventual Consistency - Read
                 requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
@@ -307,7 +306,9 @@ def handle_message(msg):
                         #Once RETURN's from k replicas ar received, take the latest one and respond to client
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         #eventual_requests.pop(requestID)
-                        #print "Returned " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
+                        print bcolors.OKGREEN, msg.key, ":", latestValue[0],'Last Written: ',latestValue[1],' Time Received: ', datetime.datetime.now().strftime('%H:%M:%S')
+
+                        print "Returned " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
 
                     #Check if entry for read value is the latest, increment RETURN counter
                     currentLatestTime = eventual_requests[requestID][1]
@@ -321,7 +322,7 @@ def handle_message(msg):
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         eventual_requests.pop(requestID)
                         send_repair_message(msg.key, latestValue)
-                        #print "Repairing - " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
+                        print "Repairing - " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
 
                     eventual_read_lock.release()
 
