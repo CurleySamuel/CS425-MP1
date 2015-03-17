@@ -121,7 +121,8 @@ def thread_function(q1, q2, q3):
         t = threading.Thread(target=send_message, args=(msg, (q[1], q[2])))
         t.daemon = True
         t.start()
-        q[1].put(t.ident)
+        if msg[2] not in ["found","search"]:
+            q[1].put(t.ident)
         # After putting an element on the queue we need to notify and release the lock.
         q[2].notifyAll()
         q[2].release()
@@ -139,7 +140,7 @@ def send_message(msg, q):
         msg[4] = servers_reverse[int(msg[4])]
     q[1].acquire()
     # Use the conditional to wait for this message to be next on the queue.
-    while thread.get_ident() != q[0].queue[0]:
+    while (msg[2] not in ["found","search"]) and (thread.get_ident() != q[0].queue[0]):
         q[1].wait()
     # It's my turn! Send the message and notify all other waiting threads.
     SEND_PORT = servers[msg[-1].upper()]
@@ -148,7 +149,8 @@ def send_message(msg, q):
     send_socket.send(" ".join(msg[1:-1]))
     send_socket.close()
     print bcolors.OKBLUE + "Sent " + bcolors.OKGREEN + msg[2] + bcolors.OKBLUE + " (" + origin + " -> " + msg[-1]+ ")\t" + str(datetime.datetime.now().strftime("%H:%M:%S:%f")) + bcolors.ENDC
-    q[0].get()
+    if msg[2] not in ["found","search"]:
+        q[0].get()
     q[1].notifyAll()
     q[1].release()
 
