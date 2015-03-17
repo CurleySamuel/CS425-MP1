@@ -137,7 +137,7 @@ class Message:
     # Will convert the Message object into a string that should be sent to the network.
     def to_message(self):
         if self.keyword in ["bcast", "send"]:
-            return " ".join([self.keyword, self.msg, self.dst or "",str(TCP_RECEIVE_PORT)])
+            return " ".join([self.keyword, self.msg, str(TCP_RECEIVE_PORT), self.dst or ""])
         if self.keyword in ["search","found"]:
             return " ".join(["bcast", str(self.socket), self.keyword, self.key, str(self.model) or "empty",self.sent_tstamp.strftime('%H:%M:%S'),str(TCP_RECEIVE_PORT)])
 
