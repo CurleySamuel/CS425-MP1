@@ -81,7 +81,7 @@ def main():
         data = conn.recv(BUFFER_SIZE)
         print 'data - ',data
         msg = data.split()
-        
+
         if len(msg) < 2:
             bad_message(conn)
         elif msg[0].lower() == "send":
@@ -135,7 +135,8 @@ def thread_function(q1, q2, q3):
 def send_message(msg, q):
     origin = servers_reverse[int(msg[-2])]
     # Sleep that random amount by looking up MAX from the delay dict.
-    sleep(random()*delay[origin][msg[-1]])
+    if msg[2] not in ["search", "found"]:
+        sleep(random()*delay[origin][msg[-1]])
     q[1].acquire()
     # Use the conditional to wait for this message to be next on the queue.
     while thread.get_ident() != q[0].queue[0]:
