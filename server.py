@@ -55,6 +55,8 @@ class Message:
                             self.val = (parse[3],datetime.datetime.strptime(parse[6],"%H:%M:%S"))
                             self.model = int(parse[4])
                             self.sent_tstamp = datetime.datetime.strptime(parse[5],"%H:%M:%S")
+                        elif self.keyword == "search":
+                            self.sent_tstamp = datetime.datetime.strptime(parse[4],"%H:%M:%S")
 
 
                 except Exception as e:
@@ -197,7 +199,7 @@ class Message:
         found_message.keyword = "found"
         found_message.key = self.key
         found_message.model = TCP_RECEIVE_PORT #Using model variable to hold server id
-        found_message.sent_tstamp = datetime.datetime.strptime(self.tstamp, "%H:%M:%S")
+        found_message.sent_tstamp = self.sent_tstamp
         found_message.send()
 
 """    END OF MESSAGE CLASS    """
