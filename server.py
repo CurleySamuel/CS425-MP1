@@ -278,21 +278,41 @@ def handle_message(msg):
 
                     #If read counter reachs appropriate R for model, return result and remove entry from dictionary
                     eventual_read_lock.acquire()
+
                     if eventual_requests[requestID][2] == (msg.model-2):
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
-                        eventual_requests.pop(requestID)
+                        #eventual_requests.pop(requestID)
                         print "Returned " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
 
                     #Check if entry for read value is the latest, increment get counter
-                    else:
-                        currentLatestTime = eventual_requests[requestID][1]
-                        if currentLatestTime < msg.val[1]:
-                            eventual_requests[requestID][0] = msg.val[0]
-                            eventual_requests[requestID][1] = msg.val[1]
-                        eventual_requests[requestID][2] += 1
+                    currentLatestTime = eventual_requests[requestID][1]
+                    if currentLatestTime < msg.val[1]:
+                        eventual_requests[requestID][0] = msg.val[0]
+                        eventual_requests[requestID][1] = msg.val[1]
+                    eventual_requests[requestID][2] += 1
+
+                    #Once the latest value of key is calculated, an update is sent to repair all replicas
+                    if eventual_requests[requestID][2] == 4:
+                        latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
+                        eventual_requests.pop(requestID)
+                        repair_message = create_repair(msg.key, latestValue)
+                        repair_message.send()
+                        print "Repairing - " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
+
                     eventual_read_lock.release()
 
+def create_repair(key, val):
 
+    repair_message = Message(True, None)
+    repair_message.socket = TCP_RECEIVE_PORT
+    currentTime = datetime.datetime.now()
+    repair_message.sent_tstamp = currentTime
+    repair_message.keyword = "update"
+    repair_message.key = key
+    repair_message.val = val
+    repair_message.model = 1
+
+    return repair_message
 
 
 def listening_thread(bufferSize):
