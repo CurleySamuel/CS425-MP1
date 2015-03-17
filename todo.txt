@@ -7,3 +7,23 @@
 Misc.
 - Add timestamp to network's output for readability.
 - Possibly change our totally, casually, fifo broadcast to just totally ordered.
+
+
+
+1. SEND/BCAST is broken.
+
+2. I'll put this in the todo, but you need to move some elements around in your acks
+msg[0] used to be the origin server's port
+But you're using it as the server which you should ack for
+Which creates this
+Sent insert (D -> C)
+Sent insert (D -> D)
+Sent insert (D -> A)
+Sent insert (D -> B)
+Sent ack (D -> A)
+Sent ack (D -> B)
+Sent ack (D -> C)
+Sent ack (D -> D)
+Should make it...
+bcast 48504 ack a 5 2 03:40:23 03:40:23
+bcast 48502 ack 48504 a 5 2 03:40:23 03:40:23
