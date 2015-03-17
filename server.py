@@ -71,9 +71,11 @@ class Message:
                     self.keyword = parse[0].lower()
 
                     # Need to handle send/bcast separately.
-                    if self.keyword in ["send", "bcast"]:
+                    if self.keyword in ["send"]:
                         self.msg = " ".join(parse[1:-1])
                         self.dst = parse[-1]
+                    elif self.keyword in ["bcast"]:
+                        self.msg = " ".join(parse[1:])
                     else:
                         self.key = parse[1]
                         # Need to handle get differently
@@ -128,7 +130,7 @@ class Message:
         if self.sent_tstamp is None:
             self.v_error = "Invalid timestamp"
             return False
-        
+
 
         self.__validated = True
         return True
@@ -232,7 +234,7 @@ def handle_message(msg):
         return
     if msg.keyword == "delete":
         key_store.pop(msg.key)
-    
+
     elif msg.keyword == "search":
         if msg.me:
             print "Keys present in: "
@@ -295,7 +297,7 @@ def handle_message(msg):
                     eventual_read_lock.acquire()
 
                     if eventual_requests[requestID][2] == (msg.model-2):
-                        #Once RETURN's from k replicas ar received, take the latest one and respond to client 
+                        #Once RETURN's from k replicas ar received, take the latest one and respond to client
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         #eventual_requests.pop(requestID)
                         print "Returned " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
@@ -349,7 +351,7 @@ valid_lengths = {
     "delay": 2,
     "show-all" : 1,
     "search" : 2
-    
+
 }
 def parse_and_validate_command(msg):
     if msg is None:
@@ -413,7 +415,7 @@ def worker_thread(message_queue):
                             if msg.keyword == "get":
                                 eventual_read_lock.acquire()
                                 #Will error if running at time 00:00:00
-                                eventual_requests[requestID] = [None,datetime.datetime(1900,1,1),0] #Queue stores (val,timestamp, # of values RETURN's received) 
+                                eventual_requests[requestID] = [None,datetime.datetime(1900,1,1),0] #Queue stores (val,timestamp, # of values RETURN's received)
                                 eventual_read_lock.release()
 
                             elif msg.keyword in ["insert","update"]:
