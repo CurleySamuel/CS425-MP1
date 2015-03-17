@@ -12,7 +12,7 @@ from time import sleep
 
 """   START OF MESSAGE CLASS   """
 
-valid_keywords = ["search","found","delete", "get", "insert", "update", "ack", "return"]
+valid_keywords = ["search","found","delete", "get", "insert", "update", "ack", "return","send","bcast"]
 class Message:
     socket = None
     keyword = None
@@ -39,7 +39,6 @@ class Message:
                         self.keyword = "send"
                         self.msg = " ".join(parse)
                     else:
-                        self.tstamp = parse[-1]
                         # Every message will contain a socket, keyword.
                         self.socket = int(parse[0])
                         if self.socket == TCP_RECEIVE_PORT:
@@ -126,11 +125,10 @@ class Message:
             return False
 
         # tstamp
-        """
-        if self.tstamp is None:
+        if self.sent_tstamp is None:
             self.v_error = "Invalid timestamp"
             return False
-        """
+        
 
         self.__validated = True
         return True
@@ -139,10 +137,11 @@ class Message:
     # Will convert the Message object into a string that should be sent to the network.
     def to_message(self):
         if self.keyword in ["bcast", "send"]:
-            return " ".join([self.keyword, self.msg, self.dst or ""])
+            return " ".join([self.keyword, self.msg, self.dst or "",str(TCP_RECEIVE_PORT)])
         if self.keyword in ["search","found"]:
-            return " ".join(["bcast", str(self.socket), self.keyword, self.key, str(self.model) or "empty",self.sent_tstamp.strftime('%H:%M:%S')])
-        return " ".join(["bcast", str(self.socket), self.keyword, self.key or "", self.val[0] or "", str(self.model or ""), self.sent_tstamp.strftime('%H:%M:%S'), self.val[1].strftime('%H:%M:%S') or ""])
+            return " ".join(["bcast", str(self.socket), self.keyword, self.key, str(self.model) or "empty",self.sent_tstamp.strftime('%H:%M:%S'),str(TCP_RECEIVE_PORT)])
+
+        return " ".join(["bcast", str(self.socket), self.keyword, self.key or "", self.val[0] or "", str(self.model or ""), self.sent_tstamp.strftime('%H:%M:%S'), self.val[1].strftime('%H:%M:%S') or "", str(TCP_RECEIVE_PORT)])
 
 
     # If message isn't already validated send will attempt to validate.
@@ -170,34 +169,33 @@ class Message:
         copy.outbound = self.outbound
         copy.msg = self.msg
         copy.dst = self.dst
-        copy.tstamp = self.tstamp
         copy.__validated = self.__validated
         copy.v_error = self.v_error
         copy.me = self.me
         copy.sent_tstamp = self.sent_tstamp
         return copy
 
-    def create_ack(self):
+    def send_ack_message(self):
         ack = self.duplicate()
         ack.outbound = True
         ack.keyword = "ack"
-        return ack
+        ack.send()
 
-    def create_return(self, cur_value):
+    def send_return_message(self, cur_value):
         return_message = self.duplicate()
         return_message.outbound = True
         return_message.keyword = "return"
         return_message.val = cur_value
-        return return_message
+        return_message.send()
 
-    def create_found(self):
+    def send_found_message(self):
         found_message = Message(True, None)
         found_message.socket = self.socket
         found_message.keyword = "found"
         found_message.key = self.key
-        found_message.model = TCP_RECEIVE_PORT #Using model variable to hold server identifier
+        found_message.model = TCP_RECEIVE_PORT #Using model variable to hold server id
         found_message.sent_tstamp = datetime.datetime.strptime(self.tstamp, "%H:%M:%S")
-        return found_message
+        found_message.send()
 
 """    END OF MESSAGE CLASS    """
 
@@ -227,7 +225,7 @@ def readFile(fileName):
 
 
 def handle_message(msg):
-    print "handling message - " + msg
+    print "Handling message - " + msg
     msg = Message(False, msg)
     if not msg.validate():
         print "Inbound message failed validation: ", msg.v_error
@@ -236,43 +234,35 @@ def handle_message(msg):
         key_store.pop(msg.key)
     
     elif msg.keyword == "search":
-        print msg.sent_tstamp
         if msg.me:
             print "Keys present in: "
         if key_store.has_key(msg.key):
-            found_message = msg.create_found()
-            found_message.send()
+            #If key is present on server, bcast FOUND message
+            msg.send_found_message()
 
     elif msg.keyword == "found":
         if msg.me:
+            #Print server which responded saying it had key TODO: Translate port numbers to server id's
             print str(msg.model)
 
     elif msg.keyword == "get":
         if ((msg.me and msg.model in range(1,3)) or (msg.model in range(3,5))):
-            return_message = msg.create_return(key_store[msg.key])
-            return_message.send()
+            msg.send_return_message(key_store[msg.key])
 
     elif msg.keyword in ["insert","update"]:
         key_store[msg.key] = msg.val
         if ((msg.me and msg.model in range(1,3)) or (msg.model in range(3,5))):
-            ack = msg.create_ack()
-            ack.send()
-        """
-        Not sure if this conditional is needed, should be same as insert(NEEDS TO BE INDENTED TO THE LEFT)
-        elif msg.keyword == "update":
-            key_store[msg.key] = msg.val
-            if msg.me:
-                ack = msg.create_ack()
-                ack.send()
-        """
+            msg.send_ack_message()
+
     elif msg.keyword == "send":
         print bcolors.OKGREEN +  'Received "' + msg.msg + '", system time is ' + \
                 str(datetime.datetime.now().strftime("%H:%M:%S:%f") + bcolors.ENDC) + \
             bcolors.HEADER +  bcolors.UNDERLINE + "\nEnter Message" + bcolors.ENDC
+
     elif msg.keyword == "ack":
         if msg.me:
             if msg.model in range(1,3):
-                #Linearizable or Sequential Consistency
+                #Linearizable/Sequential Consistency
                 print "ACK Received"
             else:
                 #Eventual Consistency - Write
@@ -282,6 +272,7 @@ def handle_message(msg):
 
                     eventual_write_lock.acquire()
                     if eventual_requests[requestID] == (msg.model-2):
+                        #Once ACK's from k replicas are received, respond to client
                         eventual_requests.pop(requestID)
                         print "ACK Received"
 
@@ -293,7 +284,7 @@ def handle_message(msg):
     elif msg.keyword == "return":
         if msg.me:
             if msg.model in range(1,3):
-                #Linearizable or Sequential Consistency
+                #Linearizable/Sequential Consistency
                 print "Returned " + str(msg.key) + " - " + msg.val[0],msg.val[1].strftime('%H:%M:%S')
             else:
                 #Eventual Consistency - Read
@@ -301,32 +292,31 @@ def handle_message(msg):
 
                 if requestID in eventual_requests:
 
-                    #If read counter reachs appropriate R for model, return result and remove entry from dictionary
                     eventual_read_lock.acquire()
 
                     if eventual_requests[requestID][2] == (msg.model-2):
+                        #Once RETURN's from k replicas ar received, take the latest one and respond to client 
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         #eventual_requests.pop(requestID)
                         print "Returned " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
 
-                    #Check if entry for read value is the latest, increment get counter
+                    #Check if entry for read value is the latest, increment RETURN counter
                     currentLatestTime = eventual_requests[requestID][1]
                     if currentLatestTime < msg.val[1]:
                         eventual_requests[requestID][0] = msg.val[0]
                         eventual_requests[requestID][1] = msg.val[1]
                     eventual_requests[requestID][2] += 1
 
-                    #Once the latest value of key is calculated, an update is sent to repair all replicas
+                    #Once the latest value of key is calculated from all (4) replicas, an update is sent to repair all replicas
                     if eventual_requests[requestID][2] == 4:
                         latestValue = (eventual_requests[requestID][0], eventual_requests[requestID][1])
                         eventual_requests.pop(requestID)
-                        repair_message = create_repair(msg.key, latestValue)
-                        repair_message.send()
+                        send_repair_message(msg.key, latestValue)
                         print "Repairing - " + str(msg.key) + " : " + latestValue[0],"-", latestValue[1].strftime('%H:%M:%S')
 
                     eventual_read_lock.release()
 
-def create_repair(key, val):
+def send_repair_message(key, val):
 
     repair_message = Message(True, None)
     repair_message.socket = TCP_RECEIVE_PORT
@@ -336,9 +326,7 @@ def create_repair(key, val):
     repair_message.key = key
     repair_message.val = val
     repair_message.model = 1
-
-    return repair_message
-
+    repair_message.send()
 
 def listening_thread(bufferSize):
     global s
@@ -419,19 +407,18 @@ def worker_thread(message_queue):
                         print "Returned " + str(msg.key) + " - " + key_store[msg.key][0],key_store[msg.key][1].strftime('%H:%M:%S')
                     else:
 
-                         #Eventual Consistency Requests
                         requestID = str(msg.socket) + "-" + msg.sent_tstamp.strftime('%H:%M:%S')
                         if msg.model in range(3,5):
+                            #Initialize Eventual Consistency queues with requests
                             if msg.keyword == "get":
                                 eventual_read_lock.acquire()
-                                print "entry created - " + str(requestID)
                                 #Will error if running at time 00:00:00
-                                eventual_requests[requestID] = [None,datetime.datetime(1900,1,1),0] #If get, need to store number of requests and latest value & timestamp
+                                eventual_requests[requestID] = [None,datetime.datetime(1900,1,1),0] #Queue stores (val,timestamp, # of values RETURN's received) 
                                 eventual_read_lock.release()
 
                             elif msg.keyword in ["insert","update"]:
                                 eventual_write_lock.acquire()
-                                eventual_requests[requestID] = 0 #Only need to store number of acks recieved
+                                eventual_requests[requestID] = 0 #Queue stores number of ACK's received
                                 eventual_write_lock.release()
 
                         msg.send()

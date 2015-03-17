@@ -79,7 +79,9 @@ def main():
     while 1:
         conn, addr = s.accept()
         data = conn.recv(BUFFER_SIZE)
+        print 'data - ',data
         msg = data.split()
+        
         if len(msg) < 2:
             bad_message(conn)
         elif msg[0].lower() == "send":
@@ -94,6 +96,7 @@ def main():
             msg.append("A")
             for x in ["A", "B", "C", "D"]:
                 msg[-1] = x
+                print 'msg - ',msg
                 # Need the list() here to create a new object. Otherwise every thread will have a
                 # reference to the same object and everything screws up. Was a fun bug.
                 queues[x][0].put(list(msg))
@@ -130,7 +133,7 @@ def thread_function(q1, q2, q3):
 # msg: A list created by splitting the message by spaces
 # q: The queue object that the thread_ids were put onto
 def send_message(msg, q):
-    origin = servers_reverse[int(msg[1])]
+    origin = servers_reverse[int(msg[-2])]
     # Sleep that random amount by looking up MAX from the delay dict.
     sleep(random()*delay[origin][msg[-1]])
     q[1].acquire()
